@@ -1,0 +1,5 @@
+Testbed/
+*.swp
+hist/
+log/
+__pycache__/
