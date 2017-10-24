@@ -2,6 +2,7 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 import pdb
+import logging
 
 # types
 from ibapi.common import *
@@ -16,13 +17,15 @@ from ibapi.scanner import ScannerSubscription
 from ibapi.ticktype import *
 
 from app import TestApp
-from util import Singleton, printWhenExecuting
+import contracts
+from util import Singleton, SetupLogger
 
 class Request:
-    def __init__(self, contract, dataType, dataCallback, endCallback):
+    def __init__(self, contract, dataType, dataCallback, endDate, endCallback):
         self.contract = contract
         self.dataType = dataType
         self.dataCallback = dataCallback
+        self.endDate = endCallback
         self.endCallback = endCallback
 
 global timeFormat, requestDict, nextReqId
@@ -33,40 +36,50 @@ dateFormat = "%Y%m%d"
 requestDict = {}
 nextReqId = 0
 
-def request(contract: Contract, endDate: dt.datetime=None, dataType="ADJUSTED_LAST", durationStr="1 Y", barSizeStr="1 day", callback=None):
-    csvFileName = csvFileNameForRequest(contract, endDate, dataType, durationStr, barSizeStr)
-    
-    # pdb.set_trace()
+def request(symbol: str, endDate: dt.datetime=None, dataType="ADJUSTED_LAST", durationStr="1 Y", barSizeStr="1 day", callback=None):
+    SetupLogger()
+    csvFileName = csvFileNameForRequest(symbol, endDate, dataType, durationStr, barSizeStr)
+
+    foundInCache = False
     try:
         df = pd.read_csv(csvFileName, index_col=0, parse_dates=[0])
-        callback(df)
+        foundInCache = True
     except:
-        global nextReqId
-        nextReqId = nextReqId + 1
-       
-        df = pd.DataFrame(columns=["open", "high", "low", "close", "volume", "count", "WAP"])
+        pass
 
-        def dataCallback(bar: BarData):
-            try:
-                date = dt.datetime.strptime(bar.date, timeFormat)
-            except:
-                date = dt.datetime.strptime(bar.date, dateFormat)
-            df.loc[date] = np.array([bar.open, bar.high, bar.low, bar.close, bar.volume, bar.barCount, bar.average])
-        
-        def endCallback():
-            # pdb.set_trace()
-            df.to_csv(csvFileName)
-            callback(df)
+    if foundInCache:
+        logging.debug("Serving %s historical data from cache", symbol)
+        callback(symbol, df)
+    else:
+        def actuallyRequest(contract: Contract):
+            print("Requesting historical data for %s", symbol)
+            global nextReqId
+            reqId = nextReqId = nextReqId + 1
 
-        req = Request(contract, dataType, dataCallback, endCallback)
-        requestDict[nextReqId] = req
+            df = pd.DataFrame(columns=["open", "high", "low", "close", "volume", "count", "WAP"])
 
-        queryTime = "" if endDate == None else endDate.strftime(timeFormat)
-        TestApp.Instance().reqHistoricalData(nextReqId, contract, queryTime, durationStr, barSizeStr, dataType, 1, 1, False, [])
+            def dataCallback(bar: BarData):
+                try:
+                    date = dt.datetime.strptime(bar.date, timeFormat)
+                except:
+                    date = dt.datetime.strptime(bar.date, dateFormat)
+                if date > endDate:
+                    resolveEnd(reqId, None, None)
+                df.loc[date] = np.array([bar.open, bar.high, bar.low, bar.close, bar.volume, bar.barCount, bar.average])
 
-        return nextReqId
+            def endCallback():
+                df.to_csv(csvFileName)
+                callback(symbol, df)
 
-def csvFileNameForRequest(contract: Contract, endDate: dt.datetime, dataType="ADJUSTED_LAST", durationStr="1 Y", barSizeStr="1 day"):
+            req = Request(contract, dataType, dataCallback, endDate, endCallback)
+            requestDict[reqId] = req
+
+            queryTime = "" if endDate == None or dataType == "ADJUSTED_LAST" else endDate.strftime(timeFormat)
+            TestApp.Instance().reqHistoricalData(nextReqId, contract, queryTime, durationStr, barSizeStr, dataType, 1, 1, False, [])
+
+        contracts.request(symbol, actuallyRequest)
+
+def csvFileNameForRequest(symbol: str, endDate: dt.datetime, dataType="ADJUSTED_LAST", durationStr="1 Y", barSizeStr="1 day"):
     if endDate == None:
         endDate = dt.datetime.now()
     if barSizeStr.endswith("day"):
@@ -74,29 +87,28 @@ def csvFileNameForRequest(contract: Contract, endDate: dt.datetime, dataType="AD
     else:
         endDateStr = endDate.strftime("%Y%m%d%H%M%S")
 
-    filename = "hist/" + contract.symbol + "_" + endDateStr + "_" + dataType + "_" + durationStr.replace(" ", "") + "_" + barSizeStr.replace(" ", "") + ".csv"
+    filename = "hist/" + symbol + "_" + endDateStr + "_" + dataType + "_" + durationStr.replace(" ", "") + "_" + barSizeStr.replace(" ", "") + ".csv"
     return filename
 
-def cancelAllHistoricalDataRequests():
-    for reqId in requestDict.keys():
-        TestApp.Instance().cancelHistoricalData(reqId)
-        del requestDict[reqId]
+def cancel(reqId):
+    TestApp.Instance().cancelHistoricalData(reqId)
+    del requestDict[reqId]
+
+def cancelAll():
+    logging.debug("Canceling historical data requests")
+    cancel(reqId for reqId in requestDict.keys())
 
 def resolve(reqId:int, bar:BarData):
-    print("HistoricalData. ", reqId, " Date:", bar.date, "Open:", bar.open,
-          "High:", bar.high, "Low:", bar.low, "Close:", bar.close, "Volume:", bar.volume,
-          "Count:", bar.barCount, "WAP:", bar.average)
-    req = requestDict[reqId]
+    req = requestDict.get(reqId)
     if req != None:
-        print ("Resolving reqId", reqId)
+        logging.debug("Receiving historical data for %s", req.contract.symbol)
         if req.dataCallback != None:
             req.dataCallback(bar)
-   
+
 def resolveEnd(reqId: int, start: str, end: str):
-    print("HistoricalDataEnd ", reqId, "from", start, "to", end)
-    req = requestDict[reqId]
+    req = requestDict.get(reqId)
     if req != None:
-        print ("Closing reqId", reqId)
+        print ("Closing historical data for", req.contract.symbol)
         if req.endCallback != None:
             req.endCallback()
             del requestDict[reqId]

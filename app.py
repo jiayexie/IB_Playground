@@ -871,8 +871,8 @@ class TestApp(TestWrapper, TestClient):
     @iswrapper
     # ! [contractdetails]
     def contractDetails(self, reqId: int, contractDetails: ContractDetails):
-        super().contractDetails(reqId, contractDetails)
-        printinstance(contractDetails.summary)
+        import contracts
+        contracts.resolveDetail(reqId, contractDetails)
 
     # ! [contractdetails]
 

@@ -19,18 +19,6 @@ from ibapi.ticktype import *
 
 from app import TestApp
 
-class Contracts:
-
-    @staticmethod
-    def Msft():
-        contract = Contract()
-        contract.symbol = 'MSFT'
-        contract.secType = 'STK'
-        contract.currency = 'USD'
-        contract.exchange = 'SMART'
-        contract.primaryExchange = 'ISLAND'
-        return contract
-
 class Request:
     def __init__(self, symbol, callback):
         self.symbol = symbol
@@ -47,23 +35,30 @@ def loadDict():
             reader = csv.reader(fin)
             for row in reader:
                 contract = Contract()
-                contract.conId = row[0]
-                contract.symbol = row[1]
-                contract.secType = row[2]
-                contract.currency = row[3]
-                contract.primaryExchange = row[4]
+                contract.symbol = row[0]
+                contract.secType = row[1]
+                contract.currency = row[2]
+                contract.primaryExchange = row[3]
+                contract.exchange = row[4]
                 contractDict[contract.symbol] = contract
 
 def writeToDict(contract: Contract):
     contractDict[contract.symbol] = contract
+    print ("Saving contract: symbol:%s, secType:%s, currency:%s, primaryExchange:%s, exchange:%s" % (
+        contract.symbol,
+        contract.secType,
+        contract.currency,
+        contract.primaryExchange,
+        contract.exchange
+    ))
     with open(fileName, mode='a') as fout:
         writer = csv.writer(fout)
         writer.writerow([
-            contract.conId,
             contract.symbol,
             contract.secType,
             contract.currency,
-            contract.primaryExchange
+            contract.primaryExchange,
+            contract.exchange
         ])
 
 
@@ -74,6 +69,7 @@ def request(symbol, callback = None):
         callback(contract)
         return
 
+    print ("Contract not found in local cache. Requesting contract for", symbol)
     global nextReqId
     nextReqId = nextReqId + 1
     req = Request(symbol, callback)
@@ -89,8 +85,7 @@ def resolve(reqId, contractDescriptions: ListOfContractDescription):
         elif count == 1:
             print ("Exactly one contract found for", req.symbol)
             contract = contractDescriptions[0].contract
-            writeToDict(contract)
-            req.callback(contract)
+            requestDetail(reqId, contract)
         else:
             print (count, "contracts found for", req.symbol, ", using first one")
             contract = contractDescriptions[0].contract
@@ -101,6 +96,14 @@ def resolve(reqId, contractDescriptions: ListOfContractDescription):
                 contract.currency,
                 contract.primaryExchange
             ))
-            writeToDict(contract)
-            req.callback(contract)
+            requestDetail(reqId, contract)
+
+def requestDetail(reqId, contract:Contract):
+    TestApp.Instance().reqContractDetails(reqId, contract)
+
+def resolveDetail(reqId, contract:ContractDetails):
+    req = requestDict[reqId]
+    if req != None:
+        writeToDict(contract.summary)
+        req.callback(contract.summary)
 
