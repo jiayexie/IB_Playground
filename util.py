@@ -1,6 +1,8 @@
 import os
 import time
 import logging
+import numpy as np
+import pandas as pd
 
 class Singleton:
     """
@@ -70,4 +72,21 @@ def SetupLogger():
     console.setLevel(logging.ERROR)
     logger.addHandler(console)
 
+def returnize0(nds):
+    """
+    @summary Computes stepwise (usually daily) returns relative to 0, where
+    0 implies no change in value.
+    @return the array is revised in place
+    """
+    if type(nds) == type(pd.DataFrame()):
+        nds = (nds / nds.shift(1)) - 1.0
+        nds = nds.fillna(0.0)
+        return nds
+
+    s= np.shape(nds)
+    if len(s)==1:
+        nds=np.expand_dims(nds,1)
+    nds[1:, :] = (nds[1:, :] / nds[0:-1]) - 1
+    nds[0, :] = np.zeros(nds.shape[1])
+    return nds
 

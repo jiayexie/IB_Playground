@@ -29,18 +29,19 @@ class OrderWrapper:
         self.order = order
 
 class MarketSimulator:
-    def __init__(self, initValue, ordersFile, valuesFile):
+    def __init__(self, initValue, ordersFile, valuesFile, callback=None):
         self.initValue = initValue
         self.ordersFile = ordersFile
         self.valuesFile = valuesFile
-        self.orders = []
-        self.symbols = []
         self.symbols_in_order = []
-        self.shares = {}
         self.data = []
         self.df_data = {}
+        self.callback = callback
 
     def run(self):
+        self.orders = []
+        self.symbols = []
+        self.shares = {}
         with open (self.ordersFile, 'r') as fin:
             reader = csv.reader(fin)
             for row in reader:
@@ -57,18 +58,7 @@ class MarketSimulator:
 
         self.orders = sorted(self.orders, key=lambda order: order.date)
         startDate = self.orders[0].date
-        endDate = self.orders[-1].date + dt.timedelta(days=1)
-
-        '''
-        To work around the issue that IB API does not allow querying ADJUSTED_LAST with an end date,
-        we call it with no end date, and manually cancel the request when date > desired endDate
-        This means we need to calculate durationStr relative to now in order to get a good start date
-        '''
-        duration = dt.datetime.now() - startDate
-        if duration.days > 365:
-            durationStr = str(math.ceil(duration.days / 365)) + " Y"
-        else:
-            durationStr = str(math.ceil(duration.days / 28)) + " M"
+        endDate = self.orders[-1].date
 
         print ("Needing", self.symbols)
 
@@ -76,7 +66,7 @@ class MarketSimulator:
         def receive(symbol, df):
             self.onDataReceived(symbol, df)
         for symbol in self.symbols:
-            historicalData.request(symbol, endDate, "ADJUSTED_LAST", durationStr, "1 day", receive)
+            historicalData.request(symbol, startDate, endDate, "ADJUSTED_LAST", "1 day", receive)
 
     def onDataReceived(self, symbol, df):
         print ("Got data for ", symbol)
@@ -85,7 +75,10 @@ class MarketSimulator:
         if len(self.data) == len(self.symbols):
             self.df_data = pd.concat(self.data, keys=self.symbols_in_order)
             self.df_data = self.df_data['close'].unstack().T # Convert into 2D df of closing price with date as index and symbol as column
-            print (self.df_data)
+            for column in self.df_data.columns.values:
+                self.df_data[column] = self.df_data[column].fillna(method="ffill")
+                self.df_data[column] = self.df_data[column].fillna(method="bfill")
+                self.df_data[column] = self.df_data[column].fillna(1.0)
             print ("Got all the data we need. Simulating..")
             self.simulate()
 
@@ -100,27 +93,30 @@ class MarketSimulator:
             started = False
             for i in range(0, n_days):
                 date = self.df_data.index[i].to_datetime() + dt.timedelta(hours=16)
-                print ("Simulating ", date)
                 while i_order < n_orders and self.orders[i_order].date < date:
                     i_order += 1
 
                 while i_order < n_orders and self.orders[i_order].date == date:
                     started = True
                     order = self.orders[i_order]
-                    price = self.df_data[order.symbol][i]
+                    try:
+                        price = self.df_data[order.symbol][i]
+                    except:
+                        print ("Bad data. ignoring")
+                        i_order += 1
+                        continue
                     quantity = order.order.totalQuantity if order.order.action.lower() == "buy" else -order.order.totalQuantity
                     amount = price * quantity
                     cash -= amount
-                    self.shares[symbol] += quantity
+                    self.shares[order.symbol] += quantity
                     i_order += 1
 
-                    print ("After", order.order.action, "of", order.order.totalQuantity, "cash =", cash, "shares =", self.shares[symbol])
-
                 value = cash
-                for symbol in self.symbols:
+                for symbol in self.df_data.columns.values:
                     value += self.shares[symbol] * self.df_data[symbol][i]
 
                 if started:
                     writer.writerow([date.year, date.month, date.day, value])
 
-
+        if self.callback != None:
+            self.callback()

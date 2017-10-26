@@ -31,7 +31,6 @@ from ibapi.ticktype import *
 
 from ibapi.account_summary_tags import *
 from app import TestClient, TestWrapper, TestApp
-import historicalData
 from util import Singleton, SetupLogger
 
 def printinstance(inst:Object):

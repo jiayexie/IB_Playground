@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import pdb
 import logging
+import math
 
 # types
 from ibapi.common import *
@@ -21,11 +22,10 @@ import contracts
 from util import Singleton, SetupLogger
 
 class Request:
-    def __init__(self, contract, dataType, dataCallback, endDate, endCallback):
+    def __init__(self, contract, dataType, dataCallback, endCallback):
         self.contract = contract
         self.dataType = dataType
         self.dataCallback = dataCallback
-        self.endDate = endCallback
         self.endCallback = endCallback
 
 global timeFormat, requestDict, nextReqId
@@ -36,9 +36,9 @@ dateFormat = "%Y%m%d"
 requestDict = {}
 nextReqId = 0
 
-def request(symbol: str, endDate: dt.datetime=None, dataType="ADJUSTED_LAST", durationStr="1 Y", barSizeStr="1 day", callback=None):
+def request(symbol: str, startDate: dt.datetime=None, endDate: dt.datetime=None, dataType="ADJUSTED_LAST", barSizeStr="1 day", callback=None):
     SetupLogger()
-    csvFileName = csvFileNameForRequest(symbol, endDate, dataType, durationStr, barSizeStr)
+    csvFileName = csvFileNameForRequest(symbol, startDate, endDate, dataType, barSizeStr)
 
     foundInCache = False
     try:
@@ -52,26 +52,47 @@ def request(symbol: str, endDate: dt.datetime=None, dataType="ADJUSTED_LAST", du
         callback(symbol, df)
     else:
         def actuallyRequest(contract: Contract):
-            print("Requesting historical data for %s", symbol)
+            print("Requesting historical data for", symbol)
             global nextReqId
             reqId = nextReqId = nextReqId + 1
 
             df = pd.DataFrame(columns=["open", "high", "low", "close", "volume", "count", "WAP"])
+
+            start = startDate
+            end = endDate
+            duration = dt.timedelta(days=1)
+            if dataType == "ADJUSTED_LAST":
+                duration += dt.datetime.now() - start
+            else:
+                duration += end - start
+            if duration.days > 365:
+                durationStr = str(math.ceil(duration.days / 365)) + " Y"
+            else:
+                durationStr = str(math.ceil(duration.days / 28)) + " M"
+
+            if barSizeStr == "1 day":
+                start = start.replace(hour=0)
+                end = end.replace(hour=16)
 
             def dataCallback(bar: BarData):
                 try:
                     date = dt.datetime.strptime(bar.date, timeFormat)
                 except:
                     date = dt.datetime.strptime(bar.date, dateFormat)
-                if date > endDate:
+                if date > end:
                     resolveEnd(reqId, None, None)
-                df.loc[date] = np.array([bar.open, bar.high, bar.low, bar.close, bar.volume, bar.barCount, bar.average])
+                elif date >= start:
+                    df.loc[date] = np.array([bar.open, bar.high, bar.low, bar.close, bar.volume, bar.barCount, bar.average])
 
             def endCallback():
+                for column in df.columns.values:
+                    df[column] = df[column].fillna(method="ffill")
+                    df[column] = df[column].fillna(method="bfill")
+                    df[column] = df[column].fillna(1.0)
                 df.to_csv(csvFileName)
                 callback(symbol, df)
 
-            req = Request(contract, dataType, dataCallback, endDate, endCallback)
+            req = Request(contract, dataType, dataCallback, endCallback)
             requestDict[reqId] = req
 
             queryTime = "" if endDate == None or dataType == "ADJUSTED_LAST" else endDate.strftime(timeFormat)
@@ -79,15 +100,19 @@ def request(symbol: str, endDate: dt.datetime=None, dataType="ADJUSTED_LAST", du
 
         contracts.request(symbol, actuallyRequest)
 
-def csvFileNameForRequest(symbol: str, endDate: dt.datetime, dataType="ADJUSTED_LAST", durationStr="1 Y", barSizeStr="1 day"):
+def csvFileNameForRequest(symbol: str, startDate: dt.datetime, endDate: dt.datetime, dataType="ADJUSTED_LAST",  barSizeStr="1 day"):
     if endDate == None:
         endDate = dt.datetime.now()
+    if startDate == None:
+        startDate = dt.datetime.now()
     if barSizeStr.endswith("day"):
+        startDateStr = startDate.strftime("%Y%m%d")
         endDateStr = endDate.strftime("%Y%m%d")
     else:
+        startDateStr = startDate.strftime("%Y%m%d%H%M%S")
         endDateStr = endDate.strftime("%Y%m%d%H%M%S")
 
-    filename = "hist/" + symbol + "_" + endDateStr + "_" + dataType + "_" + durationStr.replace(" ", "") + "_" + barSizeStr.replace(" ", "") + ".csv"
+    filename = "hist/" + symbol + "_" + startDateStr + "_" + endDateStr + "_" + dataType + "_" + barSizeStr.replace(" ", "") + ".csv"
     return filename
 
 def cancel(reqId):
