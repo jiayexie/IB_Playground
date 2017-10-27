@@ -17,7 +17,7 @@ from ibapi.commission_report import CommissionReport
 from ibapi.scanner import ScannerSubscription
 from ibapi.ticktype import *
 
-from app import TestApp
+from App import TestApp
 
 class Request:
     def __init__(self, symbol, callback):
@@ -73,7 +73,7 @@ def request(symbol, callback = None):
     global nextReqId
     nextReqId = nextReqId + 1
     req = Request(symbol, callback)
-    requestDict[nextReqId] = req 
+    requestDict[nextReqId] = req
     TestApp.Instance().reqMatchingSymbols(nextReqId, symbol)
 
 def resolve(reqId, contractDescriptions: ListOfContractDescription):

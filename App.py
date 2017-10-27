@@ -25,7 +25,7 @@ from ibapi.ticktype import *
 
 from ibapi.account_summary_tags import *
 
-from util import Singleton, printWhenExecuting
+from Util import Singleton, printWhenExecuting
 
 # ! [socket_declare]
 class TestClient(EClient):
@@ -183,7 +183,7 @@ class TestApp(TestWrapper, TestClient):
             self.reqGlobalCancel()
         else:
             print("Executing requests")
-            from execute import execute
+            from Execute import execute
             execute()
             #self.reqGlobalCancel()
             #self.marketDataType_req()
@@ -218,8 +218,8 @@ class TestApp(TestWrapper, TestClient):
         # self.tickDataOperations_cancel()
         # self.marketDepthOperations_cancel()
         # self.realTimeBars_cancel()
-        import historicalData
-        historicalData.cancelAll()
+        import HistoricalData
+        HistoricalData.cancelAll()
         # self.optionsOperations_cancel()
         # self.marketScanners_cancel()
         # self.reutersFundamentals_cancel()
@@ -714,15 +714,15 @@ class TestApp(TestWrapper, TestClient):
     @iswrapper
     # ! [historicaldata]
     def historicalData(self, reqId:int, bar: BarData):
-        import historicalData
-        historicalData.resolve(reqId, bar)
+        import HistoricalData
+        HistoricalData.resolve(reqId, bar)
     # ! [historicaldata]
 
     @iswrapper
     # ! [historicaldataend]
     def historicalDataEnd(self, reqId: int, start: str, end: str):
-        import historicalData
-        historicalData.resolveEnd(reqId, start, end)
+        import HistoricalData
+        HistoricalData.resolveEnd(reqId, start, end)
     # ! [historicaldataend]
 
     @iswrapper

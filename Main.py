@@ -30,8 +30,8 @@ from ibapi.scanner import ScannerSubscription
 from ibapi.ticktype import *
 
 from ibapi.account_summary_tags import *
-from app import TestClient, TestWrapper, TestApp
-from util import Singleton, SetupLogger
+from App import TestClient, TestWrapper, TestApp
+from Util import Singleton, SetupLogger
 
 def printinstance(inst:Object):
     attrs = vars(inst)

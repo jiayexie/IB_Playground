@@ -9,9 +9,9 @@ def execute():
     simulateMarket()
 
 def simulateMarket():
-    from marketsim import MarketSimulator
+    from MarketSimulator import MarketSimulator
     MarketSimulator(1000000, "testdata/orders.csv", "testdata/values.csv", 1, callback=analyzePortfolio).run()
 
 def analyzePortfolio():
-    from analyze import PortfolioAnalyzer
+    from Analyze import PortfolioAnalyzer
     PortfolioAnalyzer("testdata/values.csv", "SPY").run()

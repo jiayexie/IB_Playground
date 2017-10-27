@@ -17,9 +17,9 @@ from ibapi.commission_report import CommissionReport
 from ibapi.scanner import ScannerSubscription
 from ibapi.ticktype import *
 
-from app import TestApp
-import contracts
-from util import Singleton, SetupLogger
+from App import TestApp
+import Contracts
+from Util import Singleton, SetupLogger
 
 class Request:
     def __init__(self, contract, dataType, dataCallback, endCallback):
@@ -98,7 +98,7 @@ def request(symbol: str, startDate: dt.datetime=None, endDate: dt.datetime=None,
             queryTime = "" if endDate == None or dataType == "ADJUSTED_LAST" else endDate.strftime(timeFormat)
             TestApp.Instance().reqHistoricalData(nextReqId, contract, queryTime, durationStr, barSizeStr, dataType, 1, 1, False, [])
 
-        contracts.request(symbol, actuallyRequest)
+        Contracts.request(symbol, actuallyRequest)
 
 def csvFileNameForRequest(symbol: str, startDate: dt.datetime, endDate: dt.datetime, dataType="ADJUSTED_LAST",  barSizeStr="1 day"):
     if endDate == None:

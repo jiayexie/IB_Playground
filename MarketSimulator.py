@@ -18,9 +18,8 @@ from ibapi.commission_report import CommissionReport
 from ibapi.scanner import ScannerSubscription
 from ibapi.ticktype import *
 
-from orders import Orders
-import contracts
-import historicalData
+from Orders import Orders
+import HistoricalData
 
 class OrderWrapper:
     def __init__(self, date:dt.datetime, symbol:str, order:Order):
@@ -67,7 +66,7 @@ class MarketSimulator:
         def receive(symbol, df):
             self.onDataReceived(symbol, df)
         for symbol in self.symbols:
-            historicalData.request(symbol, startDate, endDate, "ADJUSTED_LAST", "1 day", receive)
+            HistoricalData.request(symbol, startDate, endDate, "ADJUSTED_LAST", "1 day", receive)
 
     def onDataReceived(self, symbol, df):
         print ("Got data for ", symbol)

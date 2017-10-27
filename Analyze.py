@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import datetime as dt
 import pdb
 
-import util
+import Util
 
 PORT_NAME = 'Portfolio'
 
@@ -37,13 +37,13 @@ class PortfolioAnalyzer:
             self.df_price[symbol] = pd.Series(data=df['close'].values, index=self.df_price.index)
             self.analyze()
 
-        import historicalData
-        historicalData.request(self.baselineSymbol, startDate, endDate, "ADJUSTED_LAST", "1 day", receive)
+        import HistoricalData
+        HistoricalData.request(self.baselineSymbol, startDate, endDate, "ADJUSTED_LAST", "1 day", receive)
 
 
     def evaluate(self, na_normalized_price):
         na_rets = na_normalized_price.copy()
-        util.returnize0(na_rets)
+        Util.returnize0(na_rets)
         vol = np.std(na_rets)
         daily_ret = np.mean(na_rets)
         cum_ret = na_normalized_price[-1] / na_normalized_price[0]
