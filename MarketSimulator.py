@@ -62,25 +62,10 @@ class MarketSimulator:
 
         print ("Needing", self.symbols)
 
-        self.symbols_in_order = []
-        def receive(symbol, df):
-            self.onDataReceived(symbol, df)
-        for symbol in self.symbols:
-            HistoricalData.request(symbol, startDate, endDate, "ADJUSTED_LAST", "1 day", receive)
-
-    def onDataReceived(self, symbol, df):
-        print ("Got data for ", symbol)
-        self.data.append(df)
-        self.symbols_in_order.append(symbol)
-        if len(self.data) == len(self.symbols):
-            self.df_data = pd.concat(self.data, keys=self.symbols_in_order)
-            self.df_data = self.df_data['close'].unstack().T # Convert into 2D df of closing price with date as index and symbol as column
-            for column in self.df_data.columns.values:
-                self.df_data[column] = self.df_data[column].fillna(method="ffill")
-                self.df_data[column] = self.df_data[column].fillna(method="bfill")
-                self.df_data[column] = self.df_data[column].fillna(1.0)
-            print ("Got all the data we need. Simulating..")
+        def doSimulate(df):
+            self.df_data = df
             self.simulate()
+        HistoricalData.requestMultiple(self.symbols, startDate, endDate, "ADJUSTED_LAST", "1 DAY", doSimulate)
 
     def simulate(self):
         cash = self.initValue

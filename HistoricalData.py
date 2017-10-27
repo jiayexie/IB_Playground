@@ -36,6 +36,25 @@ dateFormat = "%Y%m%d"
 requestDict = {}
 nextReqId = 0
 
+def requestMultiple(symbols: list, startDate: dt.datetime, endDate: dt.datetime, dataType: str, barSizeStr: str, callback = None):
+    data = []
+    symbols_in_order = []
+    def receive(symbol, df):
+        print ("Got data for ", symbol)
+        data.append(df)
+        symbols_in_order.append(symbol)
+        if len(data) == len(symbols):
+            df_data = pd.concat(data, keys=symbols_in_order)
+            df_data = df_data['close'].unstack().T # Convert into 2D df of closing price with date as index and symbol as column
+            for column in df_data.columns.values:
+                df_data[column] = df_data[column].fillna(method="ffill")
+                df_data[column] = df_data[column].fillna(method="bfill")
+                df_data[column] = df_data[column].fillna(1.0)
+            print ("Got all the data we need.")
+            callback(df_data)
+    for symbol in symbols:
+        request(symbol, startDate, endDate, "ADJUSTED_LAST", "1 day", receive)
+
 def request(symbol: str, startDate: dt.datetime=None, endDate: dt.datetime=None, dataType="ADJUSTED_LAST", barSizeStr="1 day", callback=None):
     SetupLogger()
     csvFileName = csvFileNameForRequest(symbol, startDate, endDate, dataType, barSizeStr)
