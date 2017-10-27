@@ -871,8 +871,8 @@ class TestApp(TestWrapper, TestClient):
     @iswrapper
     # ! [contractdetails]
     def contractDetails(self, reqId: int, contractDetails: ContractDetails):
-        import contracts
-        contracts.resolveDetail(reqId, contractDetails)
+        import Contracts
+        Contracts.resolveDetail(reqId, contractDetails)
 
     # ! [contractdetails]
 
@@ -897,8 +897,8 @@ class TestApp(TestWrapper, TestClient):
     # ! [symbolSamples]
     def symbolSamples(self, reqId: int,
                       contractDescriptions: ListOfContractDescription):
-        import contracts
-        contracts.resolve(reqId, contractDescriptions)
+        import Contracts
+        Contracts.resolve(reqId, contractDescriptions)
         # super().symbolSamples(reqId, contractDescriptions)
         # print("Symbol Samples. Request Id: ", reqId)
 

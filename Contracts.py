@@ -66,7 +66,8 @@ def request(symbol, callback = None):
     loadDict()
     contract = contractDict.get(symbol)
     if contract != None:
-        callback(contract)
+        if callback != None:
+            callback(contract)
         return
 
     print ("Contract not found in local cache. Requesting contract for", symbol)
@@ -87,16 +88,20 @@ def resolve(reqId, contractDescriptions: ListOfContractDescription):
             contract = contractDescriptions[0].contract
             requestDetail(reqId, contract)
         else:
-            print (count, "contracts found for", req.symbol, ", using first one")
-            contract = contractDescriptions[0].contract
-            print ("Contract: conId:%s, symbol:%s, secType:%s, currency:%s, primaryExchange:%s" % (
-                contract.conId,
-                contract.symbol,
-                contract.secType,
-                contract.currency,
-                contract.primaryExchange
-            ))
-            requestDetail(reqId, contract)
+            print (count, "contracts found for", req.symbol)
+            for cd in contractDescriptions:
+                contract = cd.contract
+                if contract.currency == 'USD':
+                    print ("Using first USD contract")
+                    print ("Contract: conId:%s, symbol:%s, secType:%s, currency:%s, primaryExchange:%s" % (
+                        contract.conId,
+                        contract.symbol,
+                        contract.secType,
+                        contract.currency,
+                        contract.primaryExchange
+                    ))
+                    requestDetail(reqId, contract)
+                    break
 
 def requestDetail(reqId, contract:Contract):
     TestApp.Instance().reqContractDetails(reqId, contract)
@@ -105,5 +110,6 @@ def resolveDetail(reqId, contract:ContractDetails):
     req = requestDict[reqId]
     if req != None:
         writeToDict(contract.summary)
-        req.callback(contract.summary)
+        if req.callback != None:
+            req.callback(contract.summary)
 
