@@ -29,13 +29,14 @@ class OrderWrapper:
         self.order = order
 
 class MarketSimulator:
-    def __init__(self, initValue, ordersFile, valuesFile, callback=None):
+    def __init__(self, initValue, ordersFile, valuesFile, commissionPrice=0, callback=None):
         self.initValue = initValue
         self.ordersFile = ordersFile
         self.valuesFile = valuesFile
         self.symbols_in_order = []
         self.data = []
         self.df_data = {}
+        self.commissionPrice = commissionPrice
         self.callback = callback
 
     def run(self):
@@ -107,7 +108,8 @@ class MarketSimulator:
                         continue
                     quantity = order.order.totalQuantity if order.order.action.lower() == "buy" else -order.order.totalQuantity
                     amount = price * quantity
-                    cash -= amount
+                    commission = self.commissionPrice * math.ceil(quantity / 100)
+                    cash -= (amount + commission)
                     self.shares[order.symbol] += quantity
                     i_order += 1
 
