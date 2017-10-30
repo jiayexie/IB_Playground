@@ -1,4 +1,5 @@
 import datetime as dt
+import time
 import numpy as np
 import pandas as pd
 import pdb
@@ -21,6 +22,9 @@ from App import TestApp
 import Contracts
 from Util import Singleton, SetupLogger
 
+logger = logging.getLogger('HistoricalData')
+logger.setLevel(logging.DEBUG)
+
 class Request:
     def __init__(self, contract, dataType, dataCallback, endCallback):
         self.contract = contract
@@ -28,7 +32,16 @@ class Request:
         self.dataCallback = dataCallback
         self.endCallback = endCallback
 
-global timeFormat, requestDict, nextReqId
+class QueuedRequest:
+    def __init__(self, symbol, startDate, endDate, dataType, barSizeStr, callback):
+        self.symbol = symbol
+        self.startDate = startDate
+        self.endDate = endDate
+        self.dataType = dataType
+        self.barSizeStr = barSizeStr
+        self.callback = callback
+
+global timeFormat, requestDict, nextReqId, queuedReqs
 
 timeFormat = "%Y%m%d %H:%M:%S"
 dateFormat = "%Y%m%d"
@@ -36,27 +49,29 @@ dateFormat = "%Y%m%d"
 requestDict = {}
 nextReqId = 0
 
+queuedReqs = []
+
 def requestMultiple(symbols: list, startDate: dt.datetime, endDate: dt.datetime, dataType: str, barSizeStr: str, callback = None):
     data = []
     symbols_in_order = []
     def receive(symbol, df):
-        print ("Got data for ", symbol)
+        logger.debug("Got data for %s", symbol)
         data.append(df)
         symbols_in_order.append(symbol)
+        logger.debug('Got data for %d symbols', len(data))
         if len(data) == len(symbols):
+            logger.debug("Got all the data we need.")
             df_data = pd.concat(data, keys=symbols_in_order)
             df_data = df_data['close'].unstack().T # Convert into 2D df of closing price with date as index and symbol as column
             for column in df_data.columns.values:
                 df_data[column] = df_data[column].fillna(method="ffill")
                 df_data[column] = df_data[column].fillna(method="bfill")
                 df_data[column] = df_data[column].fillna(1.0)
-            print ("Got all the data we need.")
             callback(df_data)
     for symbol in symbols:
         request(symbol, startDate, endDate, "ADJUSTED_LAST", "1 day", receive)
 
 def request(symbol: str, startDate: dt.datetime=None, endDate: dt.datetime=None, dataType="ADJUSTED_LAST", barSizeStr="1 day", callback=None):
-    SetupLogger()
     csvFileName = csvFileNameForRequest(symbol, startDate, endDate, dataType, barSizeStr)
 
     foundInCache = False
@@ -67,9 +82,14 @@ def request(symbol: str, startDate: dt.datetime=None, endDate: dt.datetime=None,
         pass
 
     if foundInCache:
-        logging.debug("Serving %s historical data from cache", symbol)
+        logger.debug("Serving %s historical data from cache", symbol)
         callback(symbol, df)
     else:
+        if len(requestDict) >= 50:
+            print ("Queuing request for symbol", symbol)
+            queuedReqs.append(QueuedRequest(symbol, startDate, endDate, dataType, barSizeStr, callback))
+            return
+
         def actuallyRequest(contract: Contract):
             print("Requesting historical data for", symbol)
             global nextReqId
@@ -139,21 +159,35 @@ def cancel(reqId):
     del requestDict[reqId]
 
 def cancelAll():
-    logging.debug("Canceling historical data requests")
+    logger.debug("Canceling historical data requests")
     cancel(reqId for reqId in requestDict.keys())
 
 def resolve(reqId:int, bar:BarData):
     req = requestDict.get(reqId)
     if req != None:
-        logging.debug("Receiving historical data for %s", req.contract.symbol)
+        logger.debug("Receiving historical data for %s", req.contract.symbol)
         if req.dataCallback != None:
             req.dataCallback(bar)
 
 def resolveEnd(reqId: int, start: str, end: str):
     req = requestDict.get(reqId)
     if req != None:
-        print ("Closing historical data for", req.contract.symbol)
+        logger.debug("Closing historical data for %s", req.contract.symbol)
         if req.endCallback != None:
             req.endCallback()
-            del requestDict[reqId]
+        del requestDict[reqId]
+        popFromQueue()
 
+def handleError(reqId: int):
+    req = requestDict.get(reqId)
+    if req != None:
+        logger.debug("Historical data for %s cannot be retrieved", req.contract.symbol)
+        if req.endCallback != None:
+            req.endCallback()
+        del requestDict[reqId]
+        popFromQueue()
+
+def popFromQueue():
+    if len(queuedReqs) != 0:
+        req = queuedReqs.pop(0)
+        request(req.symbol, req.startDate, req.endDate, req.dataType, req.barSizeStr, req.callback)

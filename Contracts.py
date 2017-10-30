@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pdb
 import csv
+import logging
 
 # types
 from ibapi.common import *
@@ -24,10 +25,15 @@ class Request:
         self.symbol = symbol
         self.callback = callback
 
+global nextReqId, requestDict, fileName, contractDict
+
 nextReqId = 1000
 requestDict = {}
 fileName = "contracts.csv"
 contractDict = {}
+
+logger = logging.getLogger('Contracts')
+logger.setLevel(logging.DEBUG)
 
 def loadDict():
     if len(contractDict) == 0:
@@ -44,13 +50,13 @@ def loadDict():
 
 def writeToDict(contract: Contract):
     contractDict[contract.symbol] = contract
-    print ("Saving contract: symbol:%s, secType:%s, currency:%s, primaryExchange:%s, exchange:%s" % (
+    logger.debug("Saving contract: symbol:%s, secType:%s, currency:%s, primaryExchange:%s, exchange:%s",
         contract.symbol,
         contract.secType,
         contract.currency,
         contract.primaryExchange,
         contract.exchange
-    ))
+    )
     with open(fileName, mode='a') as fout:
         writer = csv.writer(fout)
         writer.writerow([
@@ -70,8 +76,7 @@ def request(symbol, callback = None):
             callback(contract)
         return
 
-    print ("Contract not found in local cache. Requesting contract for", symbol)
-    global nextReqId
+    logger.debug("Contract not found in local cache. Requesting contract for %s", symbol)
     nextReqId = nextReqId + 1
     req = Request(symbol, callback)
     requestDict[nextReqId] = req
@@ -82,24 +87,24 @@ def resolve(reqId, contractDescriptions: ListOfContractDescription):
     if req != None:
         count = len(contractDescriptions)
         if count == 0:
-            print ("Did not find contracts for", req.symbol)
+            logger.debug("Did not find contracts for %s", req.symbol)
         elif count == 1:
-            print ("Exactly one contract found for", req.symbol)
+            logger.debug("Exactly one contract found for %s", req.symbol)
             contract = contractDescriptions[0].contract
             requestDetail(reqId, contract)
         else:
-            print (count, "contracts found for", req.symbol)
+            logger.debug("%d contracts found for %s", count, req.symbol)
             for cd in contractDescriptions:
                 contract = cd.contract
                 if contract.currency == 'USD':
-                    print ("Using first USD contract")
-                    print ("Contract: conId:%s, symbol:%s, secType:%s, currency:%s, primaryExchange:%s" % (
+                    logger.debug("Using first USD contract")
+                    logger.debug("Contract: conId:%s, symbol:%s, secType:%s, currency:%s, primaryExchange:%s",
                         contract.conId,
                         contract.symbol,
                         contract.secType,
                         contract.currency,
                         contract.primaryExchange
-                    ))
+                    )
                     requestDetail(reqId, contract)
                     break
 

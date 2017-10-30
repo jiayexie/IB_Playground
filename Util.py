@@ -61,15 +61,15 @@ def SetupLogger():
 
     timefmt = '%y%m%d_%H:%M:%S'
 
-    logging.basicConfig( level=logging.DEBUG,
-                       format=recfmt, datefmt=timefmt)
-    # logging.basicConfig(filename=time.strftime("log/pyibapi.%y%m%d_%H%M%S.log"),
-                        # filemode="w",
-                        # level=logging.INFO,
-                        # format=recfmt, datefmt=timefmt)
+    # logging.basicConfig( level=logging.DEBUG,
+                       # format=recfmt, datefmt=timefmt)
+    logging.basicConfig(filename=time.strftime("log/pyibapi.%y%m%d_%H%M%S.log"),
+                        filemode="w",
+                        level=logging.INFO,
+                        format=recfmt, datefmt=timefmt)
     logger = logging.getLogger()
     console = logging.StreamHandler()
-    console.setLevel(logging.ERROR)
+    console.setLevel(logging.DEBUG)
     logger.addHandler(console)
 
 def returnize0(nds):

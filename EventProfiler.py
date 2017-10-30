@@ -19,11 +19,10 @@ import matplotlib.pyplot as plt
 
 import Util
 
-def eventprofiler(df_events_arg, d_data, i_lookback=20, i_lookforward=20,
+def eventprofiler(df_events_arg, df_close, i_lookback=20, i_lookforward=20,
                 s_filename='study', b_market_neutral=True, b_errorbars=True,
                 s_market_sym='SPY'):
     ''' Event Profiler for an event matix'''
-    df_close = d_data['close'].copy()
     df_rets = df_close.copy()
 
     # Do not modify the original event dataframe.

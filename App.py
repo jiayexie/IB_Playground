@@ -239,6 +239,8 @@ class TestApp(TestWrapper, TestClient):
             print (errorString)
         else:
             print("Error. Id: ", reqId, " Code: ", errorCode, " Msg: ", errorString)
+            import HistoricalData
+            HistoricalData.handleError(reqId)
 
     # ! [error] self.reqId2nErr[reqId] += 1
 

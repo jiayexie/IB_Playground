@@ -5,6 +5,7 @@ import sys
 import csv
 import math
 import pdb
+import logging
 
 # types
 from ibapi.common import *
@@ -20,6 +21,9 @@ from ibapi.ticktype import *
 
 from Orders import Orders
 import HistoricalData
+
+logger = logging.getLogger('MarketSimulator')
+logger.setLevel(logging.DEBUG)
 
 class OrderWrapper:
     def __init__(self, date:dt.datetime, symbol:str, order:Order):
@@ -60,7 +64,7 @@ class MarketSimulator:
         startDate = self.orders[0].date
         endDate = self.orders[-1].date
 
-        print ("Needing", self.symbols)
+        logger.debug("Needing %s", self.symbols)
 
         def doSimulate(df):
             self.df_data = df
@@ -87,7 +91,7 @@ class MarketSimulator:
                     try:
                         price = self.df_data[order.symbol][i]
                     except:
-                        print ("Bad data. ignoring")
+                        logger.debug("Bad data. ignoring")
                         i_order += 1
                         continue
                     quantity = order.order.totalQuantity if order.order.action.lower() == "buy" else -order.order.totalQuantity

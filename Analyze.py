@@ -6,10 +6,13 @@ mpl.use('Agg')
 import matplotlib.pyplot as plt
 import datetime as dt
 import pdb
+import logging
 
 import Util
 
 PORT_NAME = 'Portfolio'
+logger = logging.getLogger('PortfolioAnalyzer')
+logger.setLevel(logging.DEBUG)
 
 class PortfolioAnalyzer:
     def __init__(self, valuesFile, baselineSymbol):
@@ -17,7 +20,7 @@ class PortfolioAnalyzer:
         self.baselineSymbol = baselineSymbol
 
     def run(self):
-        print ("Start analyizing..")
+        logger.debug("Start analyizing..")
         with open (self.valuesFile, 'r') as fin:
             reader = csv.reader(fin)
             dates = []
@@ -33,7 +36,7 @@ class PortfolioAnalyzer:
         endDate = self.df_price.index[-1]
 
         def receive(symbol, df):
-            print ("Baseline data received")
+            logger.debug("Baseline data received")
             self.df_price[symbol] = pd.Series(data=df['close'].values, index=self.df_price.index)
             self.analyze()
 
