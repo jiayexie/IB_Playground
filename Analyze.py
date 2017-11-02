@@ -54,12 +54,10 @@ class PortfolioAnalyzer:
 
         return sharpe, cum_ret, vol, daily_ret
 
-
-
     def analyze(self):
         na_normalized_price = self.df_price.values / self.df_price.values[0,:]
 
-        dates = self.df_price.index.values
+        dates = list(map(lambda dt: pd.to_datetime(dt).to_pydatetime(), self.df_price.index.values))
 
         plt.clf()
         plt.plot(dates, na_normalized_price)
